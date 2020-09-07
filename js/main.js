@@ -30,7 +30,7 @@ var g = d3.select("#chart-area")
     g.append("text")
     .attr("class", "y axis-label")
     .attr("x", - (height / 2))
-    .attr("y", -60)
+    .attr("y", -120)
     .attr("font-size","20px")
     .attr("color", "#000")
     .attr("text-anchor", "middle")
@@ -55,13 +55,13 @@ d3.json("data/revenues.json").then( function(data) {
             return d.revenue;
         })
     ])
-    .range([height, 0]);
+    .range([revenue, 0]);
 
     var xAxisCall = d3.axisBottom(x);
 
     g.append('g')
     .attr('class', 'x axis')
-    .attr('transform', 'translate(0, '+ height +')')
+    .attr('transform', 'translate(0, '+ revenue +')')
     .call(xAxisCall)
     .selectAll('text')
         .attr('y', '10')
@@ -82,9 +82,9 @@ d3.json("data/revenues.json").then( function(data) {
 
     rects.enter()
     .append('rect')
-    .attr('y', function(d){return y(d.profit);})
-    .attr('x', function(d){return x(d.revenue);})
+    .attr('y', function(d){return y(d.revenue);})
+    .attr('x', function(d){return x(d.month);})
     .attr('width', x.bandwidth)
-    .attr('height', function(d){ return height - y(d.profit);})
+    .attr('height', function(d){ return height - y(d.revenue);})
     .attr('fill', function(d){return 'grey';});
 });
