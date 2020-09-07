@@ -55,13 +55,13 @@ d3.json("data/revenues.json").then( function(data) {
             return d.revenue;
         })
     ])
-    .range([revenue, 0]);
+    .range([height, 0]);
 
     var xAxisCall = d3.axisBottom(x);
 
     g.append('g')
     .attr('class', 'x axis')
-    .attr('transform', 'translate(0, '+ revenue +')')
+    .attr('transform', 'translate(0, '+ height +')')
     .call(xAxisCall)
     .selectAll('text')
         .attr('y', '10')
