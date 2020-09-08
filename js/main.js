@@ -4,7 +4,7 @@
 *    Project 1 - Star Break Coffee
 */
 
-let margin = {left: 40, top: 10, right: 20, bottom: 30 };
+let margin = {left: 120, top: 10, right: 20, bottom: 90 };
 let width = 600 - margin.left - margin.right;
 let height = 400 - margin.top - margin.bottom;
 
@@ -19,7 +19,7 @@ var g = d3.select("#chart-area")
     g.append("text")
     .attr("class", "x axis-label")
     .attr("x", width / 2)
-    .attr("y", height + 140)
+    .attr("y", height + 60)
     .attr("font-size","20px")
     .attr("color", "#000")
     .attr("text-anchor", "middle")
@@ -29,11 +29,12 @@ var g = d3.select("#chart-area")
         // y label
     g.append("text")
     .attr("class", "y axis-label")
-    .attr("x", - (height / 2))
-    .attr("y", -120)
+    .attr("x", -(height / 2) )
+    .attr("y", -80)
     .attr("font-size","20px")
     .attr("color", "#000")
     .attr("text-anchor", "middle")
+    .attr('transform', 'rotate(-90)')
     .text("Revenues");
 
 d3.json("data/revenues.json").then( function(data) {
