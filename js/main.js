@@ -4,88 +4,117 @@
 *    Project 1 - Star Break Coffee
 */
 
-let margin = {left: 120, top: 10, right: 20, bottom: 90 };
-let width = 600 - margin.left - margin.right;
-let height = 400 - margin.top - margin.bottom;
+let MARGIN = {LEFT: 100, TOP: 10, RIGHT: 20, BOTTOM: 100 };
+let WIDTH = 600 - MARGIN.LEFT - MARGIN.RIGHT;
+let HEIGHT = 400 - MARGIN.TOP - MARGIN.BOTTOM;
 
-var g = d3.select("#chart-area")
-    .append("svg")
-        .attr("width", width + margin.left + margin.right)
-        .attr("height", height + margin.top + margin.bottom)
-        .append("g")
-            .attr("transform", "translate(" + margin.left + ", " + margin.top + ")");
+let flag = true
+
+const svg = d3.select("#chart-area").append("svg")
+    .attr("width", WIDTH + MARGIN.LEFT + MARGIN.RIGHT)
+    .attr("height", HEIGHT + MARGIN.TOP + MARGIN.BOTTOM)
+
+const g = svg.append("g")
+    .attr("transform", `translate(${MARGIN.LEFT}, ${MARGIN.TOP})`)
 
     // x label
     g.append("text")
     .attr("class", "x axis-label")
-    .attr("x", width / 2)
-    .attr("y", height + 60)
+    .attr("x", WIDTH / 2)
+    .attr("y", HEIGHT + 60)
     .attr("font-size","20px")
     .attr("color", "#000")
     .attr("text-anchor", "middle")
     .text("Month");
 
 
-        // y label
-    g.append("text")
+    // y label
+    const yLabel = g.append("text")
     .attr("class", "y axis-label")
-    .attr("x", -(height / 2) )
-    .attr("y", -80)
+    .attr("x", - (HEIGHT / 2))
+    .attr("y", -60)
     .attr("font-size","20px")
     .attr("color", "#000")
     .attr("text-anchor", "middle")
-    .attr('transform', 'rotate(-90)')
-    .text("Revenues");
+    .attr("transform", "rotate(-90)")
 
-d3.json("data/revenues.json").then( function(data) {
 
-    data.forEach(function(d) {
-        d.profit = +d.profit;
-    });
-
-    var x = d3.scaleBand()
-    .domain(data.map( function(d){
-        return d.month;
-    }))
-    .range([0, width])
+    const x = d3.scaleBand()
+    .range([0, WIDTH])
     .paddingInner(0.3)
     .paddingOuter(0.3);
 
-    var y = d3.scaleLinear()
-    .domain([0, d3.max(data, function(d) {
-            return d.revenue;
-        })
-    ])
-    .range([height, 0]);
+    const y = d3.scaleLinear()
+    .range([HEIGHT, 0]);
 
-    var xAxisCall = d3.axisBottom(x);
+    const xAxisGroup = g.append("g")
+        .attr("class", "x axis")
+        .attr("transform", `translate(0, ${HEIGHT})`)
 
-    g.append('g')
-    .attr('class', 'x axis')
-    .attr('transform', 'translate(0, '+ height +')')
-    .call(xAxisCall)
-    .selectAll('text')
-        .attr('y', '10')
-        .attr('x', '-5')
-        .attr('text-anchor', 'middle');
+    const yAxisGroup = g.append("g")
+        .attr("class", "y axis")
 
-    var yAxisCall = d3.axisLeft(y)
-    .ticks(10)
-    .tickFormat( function(d){
-        return '$' + d;
+
+d3.json("data/revenues.json").then( function(data) {
+    data.forEach(function(d) {
+        d.revenue = Number(d.revenue)
+        d.profit = Number(d.profit)
     });
-    g.append('g')
-    .attr('class', 'y axis')
-    .call(yAxisCall);
 
-    var rects = g.selectAll('rect')
-    .data(data);
+    d3.interval(() => {
+        flag = !flag
+        const newData = flag ? data : data.slice(1)
+        update(newData)
+    }, 1000)
 
-    rects.enter()
-    .append('rect')
-    .attr('y', function(d){return y(d.revenue);})
-    .attr('x', function(d){return x(d.month);})
-    .attr('width', x.bandwidth)
-    .attr('height', function(d){ return height - y(d.revenue);})
-    .attr('fill', function(d){return 'grey';});
+    update(data)
 });
+
+function update(data) {
+  const value = flag ? "profit" : "revenue"
+  const t = d3.transition().duration(750)
+
+  x.domain(data.map(d => d.month))
+  y.domain([0, d3.max(data, d => d[value])])
+
+  const xAxisCall = d3.axisBottom(x)
+  xAxisGroup.transition(t).call(xAxisCall)
+    .selectAll("text")
+      .attr("y", "10")
+      .attr("x", "-5")
+      .attr("text-anchor", "end")
+      .attr("transform", "rotate(-40)")
+
+  const yAxisCall = d3.axisLeft(y)
+    .ticks(3)
+    .tickFormat(d => d + "m")
+  yAxisGroup.transition(t).call(yAxisCall)
+
+  // JOIN new data with old elements.
+  const rects = g.selectAll("rect")
+    .data(data, d => d.month)
+
+  // EXIT old elements not present in new data.
+  rects.exit()
+    .attr("fill", "red")
+    .transition(t)
+      .attr("height", 0)
+      .attr("y", y(0))
+      .remove()
+
+  // ENTER new elements present in new data...
+  rects.enter().append("rect")
+    .attr("fill", "grey")
+    .attr("y", y(0))
+    .attr("height", 0)
+    // AND UPDATE old elements present in new data.
+    .merge(rects)
+    .transition(t)
+      .attr("x", (d) => x(d.month))
+      .attr("width", x.bandwidth)
+      .attr("y", d => y(d[value]))
+      .attr("height", d => HEIGHT - y(d[value]))
+
+  const text = flag ? "Profit ($)" : "Revenue ($)"
+  yLabel.text(text)
+}
