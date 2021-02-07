@@ -63,55 +63,58 @@ d3.json("data/revenues.json").then( function(data) {
 
     d3.interval(() => {
         flag = !flag
-        update(data)
+        const newData = flag ? data : data.slice(1)
+        update(newData)
     }, 1000)
 
     update(data)
 });
 
-function update(data){
-    const value = flag ? "profit" : "revenue"
+function update(data) {
+  const value = flag ? "profit" : "revenue"
+  const t = d3.transition().duration(750)
 
-    x.domain(data.map(d => d.month))
-    y.domain([0, d3.max(data, d => d[value])])
+  x.domain(data.map(d => d.month))
+  y.domain([0, d3.max(data, d => d[value])])
 
-    const xAxisCall = d3.axisBottom(x)
-    xAxisGroup.call(xAxisCall)
-        .selectAll("text")
-            .attr('y', '10')
-            .attr('x', '-5')
-            .attr('text-anchor', 'middle')
-            .attr("transform", "rotate(-40)")
+  const xAxisCall = d3.axisBottom(x)
+  xAxisGroup.transition(t).call(xAxisCall)
+    .selectAll("text")
+      .attr("y", "10")
+      .attr("x", "-5")
+      .attr("text-anchor", "end")
+      .attr("transform", "rotate(-40)")
 
-    const yAxisCall = d3.axisLeft(y)
-        .ticks(3)
-        .tickFormat(function(d) {return d + "m"})
-    yAxisGroup.call(yAxisCall)
-    
-    // JOIN new data with old element
-    const rects = g.selectAll("rect")
-        .data(data)
+  const yAxisCall = d3.axisLeft(y)
+    .ticks(3)
+    .tickFormat(d => d + "m")
+  yAxisGroup.transition(t).call(yAxisCall)
 
-    // console.log(rects)
-    
-    // EXIT old element not present in new data
-    rects.exit().remove();
+  // JOIN new data with old elements.
+  const rects = g.selectAll("rect")
+    .data(data, d => d.month)
 
-    // UPDATE old element present in new data 
-    rects
-        .attr('y', d => y(d[value]))
-        .attr('x', d => x(d.month))
-        .attr('width', x.bandwidth)
-        .attr('height', d => HEIGHT - y(d[value]))
+  // EXIT old elements not present in new data.
+  rects.exit()
+    .attr("fill", "red")
+    .transition(t)
+      .attr("height", 0)
+      .attr("y", y(0))
+      .remove()
 
+  // ENTER new elements present in new data...
+  rects.enter().append("rect")
+    .attr("fill", "grey")
+    .attr("y", y(0))
+    .attr("height", 0)
+    // AND UPDATE old elements present in new data.
+    .merge(rects)
+    .transition(t)
+      .attr("x", (d) => x(d.month))
+      .attr("width", x.bandwidth)
+      .attr("y", d => y(d[value]))
+      .attr("height", d => HEIGHT - y(d[value]))
 
-    rects.enter().append('rect')
-    .attr('x', d => x(d.month))
-    .attr('y', d => y(d[value]))
-    .attr('width', x.bandwidth)
-    .attr('height', d => HEIGHT - y(d[value]))
-    .attr('fill', 'grey');
-
-    const text = flag ? "Profit ($)" : "Revenue ($)"
-    yLabel.text(text)
+  const text = flag ? "Profit ($)" : "Revenue ($)"
+  yLabel.text(text)
 }
