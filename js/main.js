@@ -1,193 +1,206 @@
 /*
 *    main.js
 *    Mastering Data Visualization with D3.js
-*    Project 2 - Gapminder Clone
+*    Project 3 - CoinStats
 */
-const MARGIN = { LEFT: 100, RIGHT: 10, TOP: 10, BOTTOM: 100 }
+		
+const MARGIN = { LEFT: 20, RIGHT: 100, TOP: 50, BOTTOM: 100 }
 const WIDTH = 800 - MARGIN.LEFT - MARGIN.RIGHT
 const HEIGHT = 500 - MARGIN.TOP - MARGIN.BOTTOM
 
 const svg = d3.select("#chart-area").append("svg")
-	.attr("width", WIDTH + MARGIN.LEFT + MARGIN.RIGHT)
-	.attr("height", HEIGHT + MARGIN.TOP + MARGIN.BOTTOM)
+  .attr("width", WIDTH + MARGIN.LEFT + MARGIN.RIGHT)
+  .attr("height", HEIGHT + MARGIN.TOP + MARGIN.BOTTOM)
 
 const g = svg.append("g")
-	.attr("transform", `translate(${MARGIN.LEFT}, ${MARGIN.TOP})`)
+  .attr("transform", `translate(${MARGIN.LEFT}, ${MARGIN.TOP})`)
 
-let time = 0
-let interval
-let formattedData
+// time parsers/formatters
+const parseTime = d3.timeParse("%d/%m/%Y")
+const formatTIme = d3.timeFormat("%d/%m/%Y")
+// for tooltip
+const bisectDate = d3.bisector(d => d.date).left
 
-// Tip
-const tip = d3.tip()
-	.attr("class", "d3-tip")
-	.html(d => {
-		let text = `<strong>Country: </strong><span style="color:red">${d.country}</span><br>`
-			text += `<strong>Continent: </strong><span style="color:red">${d.continent}</span><br>`
-			text += `<strong>Life Expectancy: </strong><span style="color:red">${d3.format(".2f")(d.life_exp)}</span><br>`
-			text += `<strong>GDP per capita: </strong><span style="color:red">${d3.format("$,.0f")(d.income)}</span><br>`
-			text += `<strong>Population: </strong><span style="color:red">${d3.format(",.0f")(d.population)}</span>`
-		return text
-	})
+// add the line for the first time
+g.append("path")
+	.attr("class", "line")
+	.attr("fill", "none")
+	.attr("stroke", "grey")
+	.attr("stroke-width", "3px")
 
-const x = d3.scaleLog()
-	.base(10)
-	.range([0, WIDTH])
-	.domain([142, 150000])
-const y = d3.scaleLinear()
-	.range([HEIGHT, 0])
-	.domain([0, 90])
-const area = d3.scaleLinear()
-	.range([25*Math.PI, 1500*Math.PI])
-	.domain([2000, 1400000000])
-const continentColor = d3.scaleOrdinal(d3.schemePastel1)
-
-// Labels
+// y-axis label
 const xLabel = g.append("text")
+	.attr("class", "x axisLabel")
 	.attr("y", HEIGHT + 50)
 	.attr("x", WIDTH / 2)
 	.attr("font-size", "20px")
-	.attr("text-anchor", "middle")
-	.text("GDP Per Capita ($)")
+	.style("text-anchor", "middle")
+	.text("Time")
 const yLabel = g.append("text")
+	.attr("class", "y axisLabel")
 	.attr("transform", "rotate(-90)")
-	.attr("y", -40)
+	.attr("y", -60)
 	.attr("x", -170)
 	.attr("font-size", "20px")
 	.attr("text-anchor", "middle")
-	.text("Life Expectancy (Years)")
-const timeLabel = g.append("text")
-	.attr("y", HEIGHT - 10)
-	.attr("x", WIDTH - 40)
-	.attr("font-size", "40px")
-	.attr("opacity", "0.4")
-	.attr("text-anchor", "middle")
-	.text("1800")
+	.attr("Price ($)")
 
-// X Axis
-const xAxisCall = d3.axisBottom(x)
-	.tickValues([400, 4000, 40000])
-	.tickFormat(d3.format("$"))
-g.append("g")
+// scales
+const x = d3.scaleTime().range([0, WIDTH])
+const y = d3.scaleLinear().range([HEIGHT, 0])
+
+// axis generators
+const xAxisCall = d3.axisBottom()
+const yAxisCall = d3.axisLeft()
+	.ticks(6)
+	.tickFormat(d => `${parseInt(d / 1000)}k`)
+
+// axis groups
+const xAxis = g.append("g")
 	.attr("class", "x axis")
 	.attr("transform", `translate(0, ${HEIGHT})`)
-	.call(xAxisCall)
-
-// Y Axis
-const yAxisCall = d3.axisLeft(y)
-g.append("g")
+const yAxis = g.append("g")
 	.attr("class", "y axis")
-	.call(yAxisCall)
 
- const continents = ["europe", "asia", "americas", "africa"]
+// event listeners
+$("#coin-select").on("change", update)
+$("#var-select").on("change", update)
 
- const legend = g.append("g")
-.attr("transform", `translate(${WIDTH - 10}, ${HEIGHT - 125})`)
-
-continents.forEach((continent, i) => {
-	const legendRow = legend.append("g")
-	.attr("transform", `translate(0, ${i * 20})`)
-
-	legendRow.append("rect")
-	.attr("width", 10)
-	.attr("height", 10)
-	.attr("fill", continentColor(continent))
-
-	legendRow.append("text")
-		.attr("x", -10)
-		.attr("y", 10)
-		.attr("text-anchor", "end")
-		.style("text-transform", "capitalize")
-		.text(continent)
+// add jQuery UI slider
+$("#date-slider").slider({
+	range: true,
+	max: parseTime("31/10/2017").getTime(),
+	min: parseTime("12/5/2013").getTime(),
+	step: 86400000, // one day
+	values: [
+		parseTime("12/5/2013").getTime(),
+		parseTime("31/10/2017").getTime()
+	],
+	slide: (event, ui) => {
+		$("#dateLabel1").text(formatTime(new Date(ui.values[0])))
+		$("#dateLabel2").text(formatTime(new Date(ui.values[1])))
+		update()
+	}
 })
 
-d3.json("data/data.json").then(function(data){
-	console.log(data)
-
-	// clear data
-	formattedData = data.map( year => {
-		return year["countries"].filter(country => {
-			const dataExists = (country.income && country.life_exp)
-			return dataExists
-		}).map(country => {
-			country.income = Number(country.income)
-			country.life_exp = Number(country.life_exp)
-			return country
+d3.json("data/coins.json").then(data => {
+	// prepare and clean data
+	filteredData = {}
+	// clean data
+	Object.keys(data).forEach(coin => {
+		filteredData[coin] = data[coin]
+		.filter(d => {
+			return !(d["price_usd"] == null)
+		}).map(d => {
+			d["price_usd"] = Number(d["price_usd"])
+			d["24h_vol"] = Number(d["24h_vol"])
+			d["market_cap"] = Number(d["market_cap"])
+			d["date"] = parseTime(d["date"])
+			return d
 		})
 	})
-
-	update(formattedData[0])
+	
+	// run the visualization for the first time
+	update()
 })
 
-function step(){
-	// at the end of our data, loop back
-	time = (time < 214) ? time + 1 : 0
-	update(formattedData[time])
-}
+function update() {
+	const t = d3.transition().duration(1000)
 
-$("#play-button").on("click", function(){
-	const button = $(this)
-	if(button.text() === "Play"){
-		button.text("Pause")
-		interval = setInterval(step, 100)
-	}else{
-		button.text("Play")
-		clearInterval(interval)
-	}
-})
-$("#reset-button").on("click", function(){
-	time = 0
-	update(formattedData[0])
-})
-
-$("#continent-select").on("change", function(){
-	update(formattedData[time])
-})
-
-$("#date-slider").slider({
-	min: 1800,
-	max: 2014,
-	step:1,
-	slide: (event, ui) =>{
-		time = ui.value - 1800
-		update(formattedData[time])
-	}
-})
-
-function update(data){
-	// standard transition time for the visualization
-	const t = d3.transition().duration(100)
-
-	// filter select 
-	const continent = $("#continent-select").val()
-
-	const filteredData = data.filter( d => {
-		if(continent === "all") return true
-		else{
-			return d.continent == continent
-		}
+	// filter data based on selections
+	const coin = $("#coin-select").val()
+	const yValue = $("#var-select").val()
+	const sliderValues = $("#date-slider").slider("values")
+	const dataTimeFiltered = filteredData[coin].filter(d => {
+		return ((d.date >= sliderValues[0]) && (d.date <= sliderValues[1]))
 	})
-	// JOIN new data with old elements.
-	const circles = g.selectAll("circle")
-	.data(filteredData, d => d.country)
 
-	// EXIT old elements not present in new data.
-	circles.exit().remove()
+	// update scales
+	x.domain(d3.extent(dataTimeFiltered, d => d.date))
+	y.domain([
+		d3.min(dataTimeFiltered, d => d[yValue]) / 1.005, 
+		d3.max(dataTimeFiltered, d => d[yValue]) * 1.005
+	])
 
-	// ENTER new elements present in new data.
-	circles.enter().append("circle")
-	.attr("fill", d => continentColor(d.continent))
-	.on("mouseover", tip.show)
-	.on("mouseout", tip.hide)
-	.merge(circles)
-	.transition(t)
-	.attr("cy", d => y(d.life_exp))
-	.attr("cx", d => x(d.income))
-	.attr("r", d => Math.sqrt(area(d.population) / Math.PI ))
+	// fix for format values
+	const formatSi = d3.format(".2s")
+	function formatAbbreviation(x) {
+		const s = formatSi(x)
+		switch (s[s.length - 1]) {
+			case "G": return s.slice(0, -1) + "B" // billions
+			case "k": return s.slice(0, -1) + "K" // thousands
+		}
+		return s
+	}
 
-	// update the time label
-	timeLabel.text(String(time + 1800))
+	// update axes
+	xAxisCall.scale(x)
+	xAxis.transition(t).call(xAxisCall)
+	yAxisCall.scale(y)
+	yAxis.transition(t).call(yAxisCall.tickFormat(formatAbbreviation))
 
-	$("#year")[0].innerHTML = String(time + 1800)
-	$("#date-slider").slider("value", Number(time + 1800))
+	// clear old tooltips
+	d3.select(".focus").remove()
+	d3.select(".overlay").remove()
+
+	/******************************** Tooltip Code ********************************/
+
+	const focus = g.append("g")
+		.attr("class", "focus")
+		.style("display", "none")
+
+	focus.append("line")
+		.attr("class", "x-hover-line hover-line")
+		.attr("y1", 0)
+		.attr("y2", HEIGHT)
+
+	focus.append("line")
+		.attr("class", "y-hover-line hover-line")
+		.attr("x1", 0)
+		.attr("x2", WIDTH)
+
+	focus.append("circle")
+		.attr("r", 7.5)
+
+	focus.append("text")
+		.attr("x", 15)
+		.attr("dy", ".31em")
+
+	g.append("rect")
+		.attr("class", "overlay")
+		.attr("width", WIDTH)
+		.attr("height", HEIGHT)
+		.on("mouseover", () => focus.style("display", null))
+		.on("mouseout", () => focus.style("display", "none"))
+		.on("mousemove", mousemove)
+
+	function mousemove() {
+		const x0 = x.invert(d3.mouse(this)[0])
+		const i = bisectDate(dataTimeFiltered, x0, 1)
+		const d0 = dataTimeFiltered[i - 1]
+		const d1 = dataTimeFiltered[i]
+		const d = x0 - d0.date > d1.date - x0 ? d1 : d0
+		focus.attr("transform", `translate(${x(d.date)}, ${y(d[yValue])})`)
+		focus.select("text").text(d[yValue])
+		focus.select(".x-hover-line").attr("y2", HEIGHT - y(d[yValue]))
+		focus.select(".y-hover-line").attr("x2", -x(d.date))
+	}
+	
+	/******************************** Tooltip Code ********************************/
+
+	// Path generator
+	line = d3.line()
+		.x(d => x(d.date))
+		.y(d => y(d[yValue]))
+
+	// Update our line path
+	g.select(".line")
+		.transition(t)
+		.attr("d", line(dataTimeFiltered))
+
+	// Update y-axis label
+	const newText = (yValue === "price_usd") ? "Price ($)" 
+		: (yValue === "market_cap") ? "Market Capitalization ($)" 
+			: "24 Hour Trading Volume ($)"
+	yLabel.text(newText)
 }
